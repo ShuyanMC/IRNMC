@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>游戏职业选择</title>
+    <link rel="stylesheet" href="https://unpkg.com/element-ui/lib/theme-chalk/index.css">
+    <script src="https://unpkg.com/vue@2.6.14/dist/vue.js"></script>
+    <script src="https://unpkg.com/element-ui@2.15.6/lib/index.js"></script>
+</head>
+<body>
+    <div id="app">
+        <el-container>
+            <el-header>
+                <h1>iMC游戏职业选择</h1>
+            </el-header>
+            <el-main>
+                <el-form :model="form">
+                    <el-form-item label="游戏名">
+                        <el-input v-model="form.gameName" placeholder="请输入你的游戏名"></el-input>
+                        <h6>它不会提示，直接点击提交就是成功🏅</h6>
+                    </el-form-item>
+                    <el-form-item label="选择职业">
+                        <el-select v-model="form.job" placeholder="请选择你的职业">
+                            <el-option label="铁路局局长-管理调度铁路运行" value="铁路局局长-管理调度铁路运行"></el-option>
+                            <el-option label="医生-拥有开胸器可以拿出器官" value="医生-拥有开胸器可以拿出器官"></el-option>
+                            <el-option label="核电重工｜副岛核电站-安全第一" value="核电重工｜副岛核电站-安全第一"></el-option>
+                            <el-option label="高铁｜地铁 建设-MTR" value="高铁｜地铁建设-MTR"></el-option>
+                            <el-option label="外卖员-蓝马甲跑手（急招！缺人" value="外卖员-蓝马甲跑手（急招！缺人"></el-option>
+                            <el-option label="诚招Apple店员-高薪" value="诚招Apple店员-高薪"></el-option>
+                        </el-select>
+                    </el-form-item>
+                    <el-form-item>
+                        <!-- 添加一个按钮用于获取数据 -->
+                        <el-button type="primary" @click="submitForm">提交</el-button>
+                        <el-button type="success" @click="getDataFromServer">获取数据</el-button>
+                    </el-form-item>
+                </el-form>
+                <!-- 添加一个区域用于展示数据 -->
+                <div class="data-container">
+                    <el-card v-for="message in messages" :key="message.gameName">
+                        <h3>{{ message.gameName }}</h3>
+                        <p>{{ message.job }}</p>
+                    </el-card>
+                </div>
+            </el-main>
+        </el-container>
+    </div>
+    <script>
+        // 违禁词列表
+       const forbiddenWords = ['外挂', 'QQ', '微信', '去世', '去死', '死', '腐竹', '英年早逝', '迷你世界', '网易', '付款', '打钱', '傻逼', '只因你太美', 'wcnm', '草泥马', '妈', 'sb', 'nmsl', '泥马四了', '我操你妈', '操', '飞机', '南通', '男同', '女', '男', '扫码', '末地烛', '兄弟你好香', 'sz', '趋势', '黄色', '色色', '涩', 'wc', '我操', '开挂', '挂', '机', '人机', 'wrnm', '日本', '日本人sb', '中国', '中国人sb', '刚易', '垃圾', '辣鸡', '机吧', 'dick', 'cock', '即把', '鸡吧', '阴茎', '鸡鸡', '抖音', 'TikTok', 'B站', 'bilibili', '哔哩哔哩', '违禁词', '太监', '包皮', '香蕉', '妹子', '帅哥', '美腿', '加一下', 'vx', '微心', '企鹅', '送终', '入土为安', '荔枝', '小仙女', '孕', 'QQ', '微信', '去世', '快手', '慢脚', '狗别叫', '剌激', '溪沟', '细狗', '傻瓜', '变态', '屎', '史', '泥巴', '逆蝶', '抽', '抽奖', '中奖', '免费', '1元', '快递', '草', '曹', '槽', '艸', '摸', 'fuck', '去你的', '巴勒斯坦', '去世','penis','弱智','若只','网易','腾讯','米哈游','库洛','巴基斯坦','以色列','战争','屁股','屎','nigger','神经病','靠','鬼','父','母','滚','转账','死','阴道','卵巢','血','割','自杀','紫砂','出生','畜生','狗','勾','肮脏','日','俄罗斯','巴勒斯坦','美国','英国','丹麦','梵蒂冈','冰岛', '器官', '私', '隐私', ' China', ' Japan', '瑞士', '脑子', '有病', '油饼', '屮', '煞笔', '纱布', '沙壁', '沙', '逼', '币', 'BTC', '中华人民共和国', 'PRC', '中立', '明星', '粉丝', 'ETC', '114514', '老大', '捞大', '牢大', '肘鸡', '肘击', '坠机', 'man', '刚门', '冈易', '艹', '草', 'http', 'https', '混蛋', '笨蛋', '白痴', '胖子', '猪头肉', '恐怖袭击', '自杀式爆炸', '种族清洗', '种族优越论', '白粉', 'K粉', '脑残', '残', '马', '走私', '毒品', '母'];
+        // 检查违禁词的函数
+        function containsForbiddenWord(input) {
+            return forbiddenWords.some(word => input.includes(word));
+        }
+
+        new Vue({
+            el: '#app',
+            data() {
+                return {
+                    form: {
+                        gameName: '',
+                        job: ''
+                    },
+                    messages: [] // 用于存储从后端获取的数据
+                }
+            },
+            methods: {
+                submitForm() {
+                    // 检查输入中是否包含违禁词，如果有则阻止提交表单
+                    if (containsForbiddenWord(this.form.gameName) || containsForbiddenWord(this.form.job)) {
+                        alert("你的输入包含违禁词，请重新输入！");
+                        return;
+                    }
+
+                    // 如果没有违禁词，则继续提交
+                    fetch('http://cn.hk.zream1.hayfrp.ink:50005/submit-game-data', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(this.form)
+                    })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Network response was not ok');
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        console.log('Data successfully submitted:', data);
+                        alert('数据已成功提交！');
+
+                        // 提交数据后，立即获取数据
+                        this.getDataFromServer();
+                    })
+                    .catch(error => {
+                        console.error('Error submitting form:', error);
+                        alert('提交表单时发生错误。');
+                    });
+                },
+                getDataFromServer() {
+                    fetch('http://cn.hk.zream1.hayfrp.ink:50005/get-game-data', {
+                        method: 'GET'
+                    })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Network response was not ok');
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        console.log('Data fetched from server:', data);
+                        this.messages = data;
+                    })
+                    .catch(error => {
+                        console.error('Error fetching data:', error);
+                        alert('获取数据时发生错误。');
+                    });
+                }
+            }
+        });
+    </script>
+<a href="https://ipw.cn/ipv6webcheck/?site=cn.hk.zream1.hayfrp.ink" title="本站支持IPv6访问" target='_blank'><img style='display:inline-block;vertical-align:middle' alt="本站支持IPv6访问" src="ipv6-s1.svg"></a>
+</body>
+</html>

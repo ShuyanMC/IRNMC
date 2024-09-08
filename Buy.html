@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>接单系统</title>
+    <link rel="stylesheet" href="https://unpkg.com/element-ui/lib/theme-chalk/index.css">
+    <script src="https://unpkg.com/vue@2.6.14/dist/vue.js"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <!-- 引入 Element UI 的 JavaScript 文件 -->
+    <script src="https://unpkg.com/element-ui/lib/index.js"></script>
+    
+    <style>
+        /* 保持原有的CSS样式 */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f2f2f2;
+        }
+        #app {
+            max-width: 800px;
+            margin: 50px auto;
+        }
+        .box-card {
+            box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+        }
+        .el-form-item {
+            margin-bottom: 20px;
+        }
+        .message-list {
+            margin-top: 20px;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+        }
+        .message-item {
+            padding: 15px;
+            border-bottom: 1px solid #eaeaea;
+        }
+        .message-item:last-child {
+            border-bottom: none;
+        }
+        .message-item p {
+            margin: 5px 0;
+        }
+        .title {
+            font-size: 1.2em;
+            font-weight: bold;
+        }
+        .date {
+            color: #999;
+            font-size: 0.9em;
+        }
+        .admin-tag {
+            color: #413259;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="app">
+        <!-- 管理员登录部分 -->
+        <el-card v-if="!isAuthenticated" class="box-card">
+            <div slot="header">
+                <span class="admin-tag">Shuyan</span>
+            </div>
+            <el-form :model="adminForm" label-width="80px">
+                <el-form-item label="验证码：">
+                    <el-input v-model="adminForm.password" type="text"></el-input>
+                </el-form-item>
+                <el-form-item>
+                    <h3>验证码: {{ captcha }}</h3>
+                    <el-button type="primary" @click="adminLogin">进入</el-button>
+                </el-form-item>
+            </el-form>
+        </el-card>
+        <!-- 管理员功能区域 -->
+        <el-card v-if="isAuthenticated" class="box-card">
+            <div slot="header">
+                <span>接单区</span>
+            </div>
+            <!-- 评论提交部分 -->
+            <el-form :model="form" label-width="80px">
+                <el-form-item label="骑手名">
+                    <el-input placeholder="XXX（填游戏名）" v-model="form.name"></el-input>
+                </el-form-item>
+                <el-form-item label="留言">
+                    <el-input type="textarea" placeholder="如：已接单｜10绿宝石配送费到付" v-model="form.message"></el-input>
+                </el-form-item>
+                <el-form-item label="接单ID">
+                    <el-input placeholder="要接单的订单的ID" v-model="form.orderId"></el-input>
+                </el-form-item> <!-- 新增订单ID输入框 -->
+                <el-form-item>
+                    <el-button type="primary" @click="submitForm">提交</el-button>
+                </el-form-item>
+            </el-form>
+
+            <!-- 评论列表部分 -->
+            <el-card class="box-card" style="margin-top: 20px;">
+                <div slot="header">
+                    <span>外卖列表</span>
+                </div>
+                <div class="message-list">
+                    <div v-for="(message, index) in formattedMessages" :key="message.id" class="message-item">
+                        <p class="title">
+                            {{ message.name }}:
+                        </p>
+                        <!-- 直接显示用户名，不带任何称号 -->
+                        <p>{{ message.message }}</p>
+                        <p class="date">订单ID: {{ message.orderId }}</p> <!-- 显示订单ID -->
+                    </div>
+                </div>
+            </el-card>
+
+            <!-- 新增获取数据按钮 -->
+            <div>
+<h1></h1>
+                <el-button type="success" @click="refreshComments">获取订单数据</el-button>
+            </div>
+        </el-card>
+    </div>
+
+    <script>
+        // 违禁词列表
+        const forbiddenWords = ['外挂', 'QQ', '微信', '去世', '去死', '死', '腐竹', '英年早逝', '迷你世界', '网易', '付款', '打钱', '傻逼', '只因你太美', 'wcnm', '草泥马', '妈', 'sb', 'nmsl', '泥马四了', '我操你妈', '操', '飞机', '南通', '男同', '女', '男', '扫码', '末地烛', '兄弟你好香', 'sz', '趋势', '黄色', '色色', '涩', 'wc', '我操', '开挂', '挂', '机', '人机', 'wrnm', '日本', '日本人sb', '中国', '中国人sb', '刚易', '垃圾', '辣鸡', '机吧', 'dick', 'cock', '即把', '鸡吧', '阴茎', '鸡鸡', '抖音', 'TikTok', 'B站', 'bilibili', '哔哩哔哩', '违禁词', '太监', '包皮', '香蕉', '妹子', '帅哥', '美腿', '加一下', 'vx', '微心', '企鹅', '送终', '入土为安', '荔枝', '小仙女', '孕', 'QQ', '微信', '去世', '快手', '慢脚', '狗别叫', '剌激', '溪沟', '细狗', '傻瓜', '变态', '屎', '史', '泥巴', '逆蝶', '抽', '抽奖', '中奖', '免费', '1元', '快递', '草', '曹', '槽', '艸', '摸', 'fuck', '去你的', '巴勒斯坦', '去世','penis','弱智','若只','网易','腾讯','米哈游','库洛','巴基斯坦','以色列','战争','屁股','屎','nigger','神经病','靠','鬼','父','母','滚','转账','死','阴道','卵巢','血','割','自杀','紫砂','出生','畜生','狗','勾','肮脏','日','俄罗斯','巴勒斯坦','美国','英国','丹麦','梵蒂冈','冰岛', '器官', '私', '隐私', ' China', ' Japan', '瑞士', '脑子', '有病', '油饼', '屮', '煞笔', '纱布', '沙壁', '沙', '逼', '币', 'BTC', '中华人民共和国', 'PRC', '中立', '明星', '粉丝', 'ETC', '114514', '老大', '捞大', '牢大', '肘鸡', '肘击', '坠机', 'man', '刚门', '冈易', '艹', '草', 'http', 'https', '混蛋', '笨蛋', '白痴', '胖子', '猪头肉', '恐怖袭击', '自杀式爆炸', '种族清洗', '种族优越论', '白粉', 'K粉', '脑残', '残', '饕餮', '走私', '毒品', '母'];
+
+
+        // 检查输入是否包含违禁词
+        function containsForbiddenWord(input) {
+            return forbiddenWords.some(word => input.includes(word));
+        }
+
+        new Vue({
+            el: '#app',
+            data() {
+                return {
+                    form: {
+                        name: '',
+                        message: '',
+                        orderId: '' // 新增订单ID字段
+                    },
+                    adminForm: {
+                        password: ''
+                    },
+                    messages: [],
+                    isAuthenticated: false,
+                    captcha: ''
+                };
+            },
+            created() {
+                this.fetchCaptcha(); // 调用获取验证码的方法
+                this.fetchMessages();
+            },
+            methods: {
+                // 提交评论
+                submitForm() {
+                    if (this.form.name && this.form.message && this.form.orderId) { // 验证订单ID
+                        if (containsForbiddenWord(this.form.message)) {
+                            alert('评论内容包含违禁词，请重新输入！');
+                            return;
+                        }
+
+                        // 发送POST请求提交评论，包含订单ID
+                        axios.post('http://nb-1.muhanfrp.cn:10204/messages', { name: this.form.name, message: this.form.message, isAdmin: this.isAuthenticated, orderId: this.form.orderId })
+                        .then(response => {
+                            this.form.name = '';
+                            this.form.message = '';
+                            this.form.orderId = ''; // 清空订单ID
+                            this.fetchMessages();
+                        })
+                        .catch(error => {
+                            console.error('Error submitting message:', error);
+                            alert('提交评论失败，请重试');
+                        });
+                    } else {
+                        alert('请填写完整的姓名、评论内容和订单ID');
+                    }
+                },
+                // 获取消息
+                fetchMessages() {
+                    axios.get('http://nb-1.muhanfrp.cn:10204/messages')
+                    .then(response => {
+                        this.messages = response.data;
+                    })
+                    .catch(error => {
+                        console.error('Error fetching messages:', error);
+                        alert('获取评论失败，请重试');
+                    });
+                },
+                // 管理员登录
+                adminLogin() {
+                    // 发送POST请求验证验证码
+                    axios.post('http://nb-1.muhanfrp.cn:10204/verifyCaptcha', { captcha: this.adminForm.password })
+                    .then(response => {
+                        if (response.data.verified) {
+                            this.isAuthenticated = true;
+                            // 登录成功后，再次获取评论列表
+                            this.fetchMessages();
+                        } else {
+                            alert('验证码错误');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error verifying captcha:', error);
+                        alert('验证码验证失败');
+                    });
+                },
+                // 从后端获取验证码
+                fetchCaptcha() {
+                    axios.get('http://nb-1.muhanfrp.cn:10204/captcha')
+                    .then(response => {
+                        this.captcha = response.data.captcha;
+                    })
+                    .catch(error => {
+                        console.error('Error fetching captcha:', error);
+                        alert('获取验证码失败，请重试');
+                    });
+                },
+                // 新增方法，用于刷新评论区数据
+                refreshComments() {
+                    this.fetchMessages();
+                }
+            },
+            computed: {
+                // 根据isAuthenticated状态过滤和格式化消息标题，以区分管理员和玩家
+                // 但是现在我们不再格式化标题，直接使用原始消息数据
+                formattedMessages() {
+                    return this.messages;
+                }
+            }
+        });
+    </script>
+<h1>  </h1><a href="https://ipw.cn/ipv6webcheck/?site=cn.hk.zream1.hayfrp.ink" title="本站支持IPv6访问" target='_blank'><img style='display:inline-block;vertical-align:middle' alt="本站支持IPv6访问" src="ipv6-s1.svg"></a>
+</body>
+</html>
